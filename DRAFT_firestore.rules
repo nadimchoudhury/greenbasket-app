@@ -1,0 +1,286 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidTimestamp(ts) {
+      return ts is timestamp && ts <= request.time;
+    }
+
+    function isValidProduct(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.barcode is string && data.barcode.size() >= 1 && data.barcode.size() <= 64 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             (!('imageUrl' in data) || (data.imageUrl is string && data.imageUrl.size() <= 500)) &&
+             data.unit is string && data.unit.size() >= 1 && data.unit.size() <= 30 &&
+             data.costPrice is number && data.costPrice >= 0 &&
+             data.sellingPrice is number && data.sellingPrice >= 0 &&
+             data.discountPercent is number && data.discountPercent >= 0 && data.discountPercent <= 100 &&
+             data.stockQuantity is int && data.stockQuantity >= 0 &&
+             data.reorderThreshold is int && data.reorderThreshold >= 0 &&
+             data.reorderQuantity is int && data.reorderQuantity >= 1 &&
+             (!('supplierId' in data) || (data.supplierId is string && data.supplierId.size() <= 128)) &&
+             (!('supplierName' in data) || (data.supplierName is string && data.supplierName.size() <= 120)) &&
+             data.totalSoldUnits is int && data.totalSoldUnits >= 0 &&
+             data.totalRevenue is number && data.totalRevenue >= 0 &&
+             data.totalProfit is number &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidOrder(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.orderNumber is string && data.orderNumber.size() >= 1 && data.orderNumber.size() <= 60 &&
+             data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 120 &&
+             (!('customerPhone' in data) || (data.customerPhone is string && data.customerPhone.size() <= 40)) &&
+             (!('deliveryAddress' in data) || (data.deliveryAddress is string && data.deliveryAddress.size() <= 300)) &&
+             data.orderType is string && data.orderType in ['WALK_IN', 'DELIVERY'] &&
+             data.status is string && data.status in ['PENDING', 'PACKED', 'OUT_FOR_DELIVERY', 'COMPLETED', 'CANCELLED'] &&
+             data.paymentMethod is string && data.paymentMethod in ['CASH', 'CARD', 'UPI'] &&
+             data.itemsSummary is string && data.itemsSummary.size() >= 1 && data.itemsSummary.size() <= 1000 &&
+             data.items is list && data.items.size() >= 1 && data.items.size() <= 50 && data.items[0] is map &&
+             data.totalItemsCount is int && data.totalItemsCount >= 1 &&
+             data.subtotal is number && data.subtotal >= 0 &&
+             data.discountTotal is number && data.discountTotal >= 0 &&
+             data.totalAmount is number && data.totalAmount >= 0 &&
+             data.totalCost is number && data.totalCost >= 0 &&
+             data.netProfit is number &&
+             data.orderDateEpochDay is int && data.orderDateEpochDay >= 0 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidSupplier(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+             data.contactPerson is string && data.contactPerson.size() >= 1 && data.contactPerson.size() <= 120 &&
+             data.phone is string && data.phone.size() >= 1 && data.phone.size() <= 40 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 120)) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             (!('address' in data) || (data.address is string && data.address.size() <= 250)) &&
+             data.leadTimeDays is int && data.leadTimeDays >= 0 && data.leadTimeDays <= 90 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 500)) &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidRestockOrder(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             (!('supplierId' in data) || (data.supplierId is string && data.supplierId.size() <= 128)) &&
+             data.supplierName is string && data.supplierName.size() >= 1 && data.supplierName.size() <= 120 &&
+             data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 128 &&
+             data.productName is string && data.productName.size() >= 1 && data.productName.size() <= 120 &&
+             (!('barcode' in data) || (data.barcode is string && data.barcode.size() <= 64)) &&
+             data.quantityOrdered is int && data.quantityOrdered >= 1 &&
+             data.unitCost is number && data.unitCost >= 0 &&
+             data.totalCost is number && data.totalCost >= 0 &&
+             data.status is string && data.status in ['ORDERED', 'RECEIVED', 'CANCELLED'] &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    function isValidExpense(data) {
+      return data.userId is string && data.userId == request.auth.uid &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+             data.amount is number && data.amount > 0 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 300)) &&
+             data.expenseDateEpochDay is int && data.expenseDateEpochDay >= 0 &&
+             isValidTimestamp(data.createdAt) &&
+             isValidTimestamp(data.updatedAt);
+    }
+
+    match /users/{userId} {
+      match /products/{productId} {
+        allow get: if isOwner(userId) && isValidId(productId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'barcode', 'category', 'unit',
+                           'costPrice', 'sellingPrice', 'discountPercent',
+                           'stockQuantity', 'reorderThreshold', 'reorderQuantity',
+                           'totalSoldUnits', 'totalRevenue', 'totalProfit',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'barcode', 'category', 'imageUrl', 'unit',
+                           'costPrice', 'sellingPrice', 'discountPercent',
+                           'stockQuantity', 'reorderThreshold', 'reorderQuantity',
+                           'supplierId', 'supplierName',
+                           'totalSoldUnits', 'totalRevenue', 'totalProfit',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidProduct(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(productId) &&
+                         isValidProduct(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'barcode', 'category', 'imageUrl', 'unit',
+                           'costPrice', 'sellingPrice', 'discountPercent',
+                           'stockQuantity', 'reorderThreshold', 'reorderQuantity',
+                           'supplierId', 'supplierName',
+                           'totalSoldUnits', 'totalRevenue', 'totalProfit',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(productId);
+      }
+
+      match /orders/{orderId} {
+        allow get: if isOwner(userId) && isValidId(orderId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(orderId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'orderNumber', 'customerName', 'orderType',
+                           'status', 'paymentMethod', 'itemsSummary', 'items',
+                           'totalItemsCount', 'subtotal', 'discountTotal',
+                           'totalAmount', 'totalCost', 'netProfit',
+                           'orderDateEpochDay', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'orderNumber', 'customerName', 'customerPhone',
+                           'deliveryAddress', 'orderType', 'status', 'paymentMethod',
+                           'itemsSummary', 'items', 'totalItemsCount', 'subtotal',
+                           'discountTotal', 'totalAmount', 'totalCost', 'netProfit',
+                           'orderDateEpochDay', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidOrder(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(orderId) &&
+                         isValidOrder(incoming()) &&
+                         existing().status != 'CANCELLED' &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'status', 'customerName', 'customerPhone', 'deliveryAddress',
+                           'paymentMethod', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(orderId);
+      }
+
+      match /suppliers/{supplierId} {
+        allow get: if isOwner(userId) && isValidId(supplierId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(supplierId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'name', 'contactPerson', 'phone',
+                           'category', 'leadTimeDays', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'name', 'contactPerson', 'phone', 'email',
+                           'category', 'address', 'leadTimeDays', 'notes',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidSupplier(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(supplierId) &&
+                         isValidSupplier(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'name', 'contactPerson', 'phone', 'email',
+                           'category', 'address', 'leadTimeDays', 'notes',
+                           'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(supplierId);
+      }
+
+      match /restock_orders/{restockId} {
+        allow get: if isOwner(userId) && isValidId(restockId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(restockId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'supplierName', 'productId', 'productName',
+                           'quantityOrdered', 'unitCost', 'totalCost', 'status',
+                           'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'supplierId', 'supplierName', 'productId',
+                           'productName', 'barcode', 'quantityOrdered', 'unitCost',
+                           'totalCost', 'status', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidRestockOrder(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(restockId) &&
+                         isValidRestockOrder(incoming()) &&
+                         !(existing().status in ['RECEIVED', 'CANCELLED']) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'status', 'quantityOrdered', 'unitCost', 'totalCost', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(restockId);
+      }
+
+      match /expenses/{expenseId} {
+        allow get: if isOwner(userId) && isValidId(expenseId);
+        allow list: if isOwner(userId);
+
+        allow create: if isOwner(userId) &&
+                         isValidId(expenseId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'category', 'amount',
+                           'expenseDateEpochDay', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'category', 'amount', 'notes',
+                           'expenseDateEpochDay', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidExpense(incoming());
+
+        allow update: if isOwner(userId) &&
+                         isValidId(expenseId) &&
+                         isValidExpense(incoming()) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'title', 'category', 'amount', 'notes',
+                           'expenseDateEpochDay', 'updatedAt'
+                         ]);
+
+        allow delete: if isOwner(userId) && isValidId(expenseId);
+      }
+    }
+  }
+}

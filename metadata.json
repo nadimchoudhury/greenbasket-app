@@ -1,0 +1,6 @@
+{
+  "name": "GreenBasket",
+  "description": "Real-time grocery shop POS, inventory, profit-loss analytics, barcode checkout, customer orders, and supplier management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

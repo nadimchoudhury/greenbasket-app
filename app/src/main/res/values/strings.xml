@@ -1,0 +1,16 @@
+<resources>
+    <string name="app_name">GreenBasket</string>
+    <string name="sign_in_google">Sign in with Google</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="nav_dashboard">Analytics</string>
+    <string name="nav_inventory">Inventory</string>
+    <string name="nav_pos">POS &amp; Scan</string>
+    <string name="nav_orders">Orders</string>
+    <string name="nav_suppliers">Suppliers</string>
+    <string name="low_stock_channel_name">Low Inventory Alerts</string>
+    <string name="low_stock_channel_desc">Real-time notifications when grocery stock falls at or below reorder thresholds</string>
+    <string name="load_demo_catalog">Load Sample Grocery Store</string>
+    <string name="add_product">Add Product</string>
+    <string name="checkout_order">Complete Checkout</string>
+    <string name="scan_barcode">Scan Barcode</string>
+</resources>
